@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.jeecgframework.boot</groupId>
 		<artifactId>jeecg-boot-parent</artifactId>
-		<version>3.5.2</version>
+		<version>3.6.1</version>
 	</parent>
 	<modelVersion>4.0.0</modelVersion>
 	<artifactId>jeecg-boot-base-core</artifactId>
@@ -175,6 +175,10 @@
 					<groupId>org.apache.shiro</groupId>
 					<artifactId>shiro-core</artifactId>
 				</exclusion>
+				<exclusion>
+					<artifactId>checkstyle</artifactId>
+					<groupId>com.puppycrawl.tools</groupId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 
@@ -251,6 +255,15 @@
 		<dependency>
 			<groupId>commons-fileupload</groupId>
 			<artifactId>commons-fileupload</artifactId>
+		</dependency>
+		<!--加载hutool-->
+		<dependency>
+			<groupId>cn.hutool</groupId>
+			<artifactId>hutool-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>cn.hutool</groupId>
+			<artifactId>hutool-crypto</artifactId>
 		</dependency>
 	</dependencies>
 

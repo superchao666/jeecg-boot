@@ -9,10 +9,7 @@ import org.apache.shiro.spring.LifecycleBeanPostProcessor;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
-import org.crazycake.shiro.IRedisManager;
-import org.crazycake.shiro.RedisCacheManager;
-import org.crazycake.shiro.RedisClusterManager;
-import org.crazycake.shiro.RedisManager;
+import org.crazycake.shiro.*;
 import org.jeecg.common.constant.CommonConstant;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.config.JeecgBaseConfig;
@@ -20,11 +17,13 @@ import org.jeecg.config.shiro.filters.CustomShiroFilterFactoryBean;
 import org.jeecg.config.shiro.filters.JwtFilter;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.env.Environment;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
@@ -32,6 +31,7 @@ import redis.clients.jedis.JedisCluster;
 import javax.annotation.Resource;
 import javax.servlet.Filter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author: Scott
@@ -49,6 +49,8 @@ public class ShiroConfig {
     private Environment env;
     @Resource
     private JeecgBaseConfig jeecgBaseConfig;
+    @Autowired(required = false)
+    private RedisProperties redisProperties;
 
     /**
      * Filter Chain定义说明
@@ -119,6 +121,8 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/swagger**/**", "anon");
         filterChainDefinitionMap.put("/webjars/**", "anon");
         filterChainDefinitionMap.put("/v2/**", "anon");
+        // 企业微信证书排除
+        filterChainDefinitionMap.put("/WW_verify*", "anon");
         
         filterChainDefinitionMap.put("/sys/annountCement/show/**", "anon");
 
@@ -127,6 +131,12 @@ public class ShiroConfig {
         filterChainDefinitionMap.put("/**/*.js.map", "anon");
         filterChainDefinitionMap.put("/**/*.css.map", "anon");
         
+        //拖拽仪表盘设计器排除
+        filterChainDefinitionMap.put("/drag/view", "anon");
+        filterChainDefinitionMap.put("/drag/page/queryById", "anon");
+        filterChainDefinitionMap.put("/drag/onlDragDatasetHead/getAllChartData", "anon");
+        filterChainDefinitionMap.put("/drag/onlDragDatasetHead/getTotalData", "anon");
+        filterChainDefinitionMap.put("/drag/mock/json/**", "anon");
         //大屏模板例子
         filterChainDefinitionMap.put("/test/bigScreen/**", "anon");
         filterChainDefinitionMap.put("/bigscreen/template1/**", "anon");
@@ -243,11 +253,24 @@ public class ShiroConfig {
     public IRedisManager redisManager() {
         log.info("===============(2)创建RedisManager,连接Redis..");
         IRedisManager manager;
+
+        // sentinel cluster redis
+        if (Objects.nonNull(redisProperties)
+                && Objects.nonNull(redisProperties.getSentinel())
+                && !CollectionUtils.isEmpty(redisProperties.getSentinel().getNodes())) {
+            RedisSentinelManager sentinelManager = new RedisSentinelManager();
+            sentinelManager.setMasterName(redisProperties.getSentinel().getMaster());
+            sentinelManager.setHost(String.join(",", redisProperties.getSentinel().getNodes()));
+            sentinelManager.setPassword(redisProperties.getSentinel().getPassword());
+            sentinelManager.setDatabase(redisProperties.getDatabase());
+
+            return sentinelManager;
+        }
         // redis 单机支持，在集群为空，或者集群无机器时候使用 add by jzyadmin@163.com
         if (lettuceConnectionFactory.getClusterConfiguration() == null || lettuceConnectionFactory.getClusterConfiguration().getClusterNodes().isEmpty()) {
             RedisManager redisManager = new RedisManager();
-            redisManager.setHost(lettuceConnectionFactory.getHostName());
-            redisManager.setPort(lettuceConnectionFactory.getPort());
+            redisManager.setHost(lettuceConnectionFactory.getHostName() + ":" + lettuceConnectionFactory.getPort());
+            //(lettuceConnectionFactory.getPort());
             redisManager.setDatabase(lettuceConnectionFactory.getDatabase());
             redisManager.setTimeout(0);
             if (!StringUtils.isEmpty(lettuceConnectionFactory.getPassword())) {
